@@ -196,7 +196,7 @@ int byteNot(int x, int n) {
  *   Rating: 2
  */
 int byteXor(int x, int y, int n) {
-    int mask = 0xffffffff;
+    int mask = (0xff << 8) + (0xff << 16) + (0xff << 24) + 0xff;
     int xn = x & (mask ^ (0xff << (n << 3)));
     int yn = y & (mask ^ (0xff << (n << 3)));
     return ((xn ^ yn) >> (0xff << (n << 3))) >> 3;
