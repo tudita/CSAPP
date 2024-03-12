@@ -196,10 +196,11 @@ int byteNot(int x, int n) {
  *   Rating: 2
  */
 int byteXor(int x, int y, int n) {
-    int mask = (0xff << 8) + (0xff << 16) + (0xff << 24) + 0xff;
-    int xn = x & (mask ^ (0xff << (n << 3)));
-    int yn = y & (mask ^ (0xff << (n << 3)));
-    return ((xn ^ yn) >> (0xff << (n << 3))) >> 3;
+    int xn = x & ((0xff << (n << 3)));
+    int yn = y & ((0xff << (n << 3)));
+    int res = (xn ^ yn) >> (n << 3);
+    res = res & 0xff;
+    return !(!res);
 }
 /*
  *   logicalAnd - x && y
@@ -208,6 +209,7 @@ int byteXor(int x, int y, int n) {
  *   Rating: 3
  */
 int logicalAnd(int x, int y) {
+
     return 2;
 }
 /*
