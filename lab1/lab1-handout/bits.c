@@ -58,12 +58,12 @@ You are expressly forbidden to :
 3. Define any additional functions in this file.
 4. Call any functions.
 5. Use any other operations, such as&&, || , -, or ? :
-    6. Use any form of casting.
-    7. Use any data type other than int.This implies that you
-    cannot use arrays, structs, or unions.
+6. Use any form of casting.
+7. Use any data type other than int.This implies that you
+cannot use arrays, structs, or unions.
 
 
-    You may assume that your machine :
+You may assume that your machine :
 1. Uses 2s complement, 32 - bit representations of integers.
 2. Performs right shifts arithmetically.
 3. Has unpredictable behavior when shifting an integer by more
@@ -206,11 +206,10 @@ int byteXor(int x, int y, int n) {
  *   logicalAnd - x && y
  *   Legal ops: ! ~ & ^ | + << >>
  *   Max ops: 20
- *   Rating: 3
+     *   Rating: 3
  */
 int logicalAnd(int x, int y) {
-
-    return 2;
+    return (!(!x)) & (!(!y));
 }
 /*
  *   logicalOr - x || y
@@ -219,7 +218,7 @@ int logicalAnd(int x, int y) {
  *   Rating: 3
  */
 int logicalOr(int x, int y) {
-    return 2;
+    return (!(!x)) | (!(!y));
 }
 /*
  * rotateLeft - Rotate x to the left by n
@@ -230,7 +229,11 @@ int logicalOr(int x, int y) {
  *   Rating: 3
  */
 int rotateLeft(int x, int n) {
-    return 2;
+    int negn = ~n + 1;
+    int left = (x >> 1) & (~(1 << 31));
+    left = left >> (31 + negn);
+    int ans = (x << n) | left;
+    return ans;
 }
 /*
  * parityCheck - returns 1 if x contains an odd number of 1's
@@ -240,7 +243,12 @@ int rotateLeft(int x, int n) {
  *   Rating: 4
  */
 int parityCheck(int x) {
-    return 2;
+    int check = x ^ (x >> 16);
+    check = check ^ (check >> 8);
+    check = check ^ (check >> 4);
+    check = check ^ (check >> 2);
+    check = check ^ (check >> 1);
+    return check & 0x1;
 }
 /*
  * mul2OK - Determine if can compute 2*x without overflow
@@ -252,7 +260,10 @@ int parityCheck(int x) {
  *   Rating: 2
  */
 int mul2OK(int x) {
-    return 2;
+    int allone = (~1) + 1;
+    int ans = (!(!((x << 1) & allone)) & (!((x << 2) & allone))) |
+        (!((x >> 30) & 0x1));
+    return ans;
 }
 /*
  * mult3div2 - multiplies by 3/2 rounding toward 0,
@@ -266,7 +277,9 @@ int mul2OK(int x) {
  *   Rating: 2
  */
 int mult3div2(int x) {
-    return 2;
+    x = x + (x << 1);
+    int bias = (x >> 31) & 0x1;
+    return (x + bias) >> 1;
 }
 /*
  * subOK - Determine if can compute x-y without overflow
@@ -277,7 +290,12 @@ int mult3div2(int x) {
  *   Rating: 3
  */
 int subOK(int x, int y) {
-    return 2;
+    int negy = ~y + 1;
+    int s = x + negy;
+    int xx = (x >> 31) & 0x1;
+    int yy = (y >> 31) & 0x1;
+    int ss = (s >> 31) & 0x1;
+    return !((xx & yy & (!ss)) | ((!xx) & (!yy) & ss));
 }
 /*
  * absVal - absolute value of x
@@ -288,6 +306,9 @@ int subOK(int x, int y) {
  *   Rating: 4
  */
 int absVal(int x) {
+    // ~1 + 1
+    int negone = ~1 + 1;
+    int bias = (x >> 31) & 0x1;
     return 2;
 }
 /*
