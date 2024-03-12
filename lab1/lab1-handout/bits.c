@@ -58,12 +58,12 @@ You are expressly forbidden to :
 3. Define any additional functions in this file.
 4. Call any functions.
 5. Use any other operations, such as&&, || , -, or ? :
-6. Use any form of casting.
-7. Use any data type other than int.This implies that you
-cannot use arrays, structs, or unions.
+    6. Use any form of casting.
+    7. Use any data type other than int.This implies that you
+    cannot use arrays, structs, or unions.
 
 
-You may assume that your machine :
+    You may assume that your machine :
 1. Uses 2s complement, 32 - bit representations of integers.
 2. Performs right shifts arithmetically.
 3. Has unpredictable behavior when shifting an integer by more
@@ -295,7 +295,7 @@ int subOK(int x, int y) {
     int xx = (x >> 31) & 0x1;
     int yy = (y >> 31) & 0x1;
     int ss = (s >> 31) & 0x1;
-    return !((xx & yy & (!ss)) | ((!xx) & (!yy) & ss));
+    return !((xx ^ yy) & (xx ^ ss) & 0x1);
 }
 /*
  * absVal - absolute value of x
@@ -306,10 +306,8 @@ int subOK(int x, int y) {
  *   Rating: 4
  */
 int absVal(int x) {
-    // ~1 + 1
-    int negone = ~1 + 1;
-    int bias = (x >> 31) & 0x1;
-    return 2;
+    int isNeg = (x >> 31) & 0x1;
+    return (x ^ (~0) + (!isNeg)) + isNeg;
 }
 /*
  * float_abs - Return bit-level equivalent of absolute value of f for
@@ -323,7 +321,11 @@ int absVal(int x) {
  *   Rating: 2
  */
 unsigned float_abs(unsigned uf) {
-    return 2;
+    unsigned head = 1 << 31;
+    unsigned f = uf & (~head);
+    unsigned b = 0xff << 23;
+    if (((uf & b) == b) && f ^ b) return uf;
+    return f;
 }
 /*
  * float_f2i - Return bit-level equivalent of expression (int) f
@@ -338,5 +340,27 @@ unsigned float_abs(unsigned uf) {
  *   Rating: 4
  */
 int float_f2i(unsigned uf) {
-    return 2;
+    int negone = ~1 + 1;
+    unsigned b = 0xff << 23;
+    int e = uf & b;
+    if (e == b) return 0x80000000u;
+    if ((e ^ b) == b) return 0;
+    //规格化小数
+    e = e >> 23;
+    int E = e - 127;
+    if (E & (1 << 31)) return 0;
+    int frac = uf & ((1 << 23) + negone);
+    frac = frac | (1 << 23);
+    int ans = 0;
+    if (E > 31) return 0x80000000u;
+    if (E > 23) {
+        ans = frac << (E - 23);
+    }
+    else {
+        ans = frac >> (23 - E);
+    }
+    if ((uf >> 31) & 0x1) {
+        ans = ~ans + 1;
+    }
+    return ans;
 }
