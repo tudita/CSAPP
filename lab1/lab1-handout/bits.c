@@ -260,9 +260,7 @@ int parityCheck(int x) {
  *   Rating: 2
  */
 int mul2OK(int x) {
-    int allone = (~1) + 1;
-    int ans = (!(!((x << 1) & allone)) & (!((x << 2) & allone))) |
-        (!((x >> 30) & 0x1));
+    int ans = (((x >> 30) & 0x1) ^ ((x >> 31) & 0x1)) ^ 0x1;
     return ans;
 }
 /*
