@@ -3,6 +3,7 @@ I am for medical liability at the federal level.
 0 1 1 2 3 5
 0 k 101
 14 7
+5 115
 ```
 
 反汇编函数`phase_1`
@@ -212,4 +213,28 @@ for (int x1 = 0; x1 <= 0xe; x1++) {
 
 所以答案为`14 7`
 
+进入`phase_5`函数，阅读前面的部分，可知`phase_5`要求读入两个整数x1,x2。
 
+```asm
+   0x08048e3b <+47>:    mov    0x4(%esp),%eax
+   0x08048e3f <+51>:    and    $0xf,%eax
+   0x08048e42 <+54>:    mov    %eax,0x4(%esp)
+   0x08048e46 <+58>:    cmp    $0xf,%eax
+   0x08048e49 <+61>:    je     0x8048e79 <phase_5+109>  
+   .............
+   0x08048e79 <+109>:   call   0x80491c1 <explode_bomb>
+```
+
+可知
+
+
+
+链表如图所示：
+
+    <img title="" src="file:///C:/Users/abc/AppData/Roaming/marktext/images/2024-03-20-19-33-41-image.png" alt="" width="441">
+
+要满足要求，`x1 = 5`
+
+`x2`为链表上所有节点数字之和（除第一个节点外），即`115`
+
+答案为`5 115`
