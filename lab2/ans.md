@@ -4,6 +4,7 @@ I am for medical liability at the federal level.
 0 k 101
 14 7
 5 115
+3 4 6 5 2 1
 ```
 
 反汇编函数`phase_1`
@@ -227,8 +228,6 @@ for (int x1 = 0; x1 <= 0xe; x1++) {
 
 可知
 
-
-
 链表如图所示：
 
     <img title="" src="file:///C:/Users/abc/AppData/Roaming/marktext/images/2024-03-20-19-33-41-image.png" alt="" width="441">
@@ -238,3 +237,90 @@ for (int x1 = 0; x1 <= 0xe; x1++) {
 `x2`为链表上所有节点数字之和（除第一个节点外），即`115`
 
 答案为`5 115`
+
+进入`phase_6`：开头读入六个整数，到`0x08048ebd`时，六个数字存储在以` 0xc(%esp)`为首地址的24个字节中。
+
+```asm6502
+   0x08048ec4 <+41>:    add    $0x1,%esi
+   0x08048ec7 <+44>:    cmp    $0x6,%esi
+   0x08048eca <+47>:    je     0x8048efa <phase_6+95>
+   0x08048ecc <+49>:    mov    %esi,%ebx
+   0x08048ece <+51>:    mov    0xc(%esp,%ebx,4),%eax
+   0x08048ed2 <+55>:    cmp    %eax,0x8(%esp,%esi,4)
+   0x08048ed6 <+59>:    je     0x8048ef3 <phase_6+88>
+   0x08048ed8 <+61>:    add    $0x1,%ebx
+   0x08048edb <+64>:    cmp    $0x5,%ebx
+   0x08048ede <+67>:    jle    0x8048ece <phase_6+51>
+   0x08048ee0 <+69>:    mov    0xc(%esp,%esi,4),%eax
+   0x08048ee4 <+73>:    sub    $0x1,%eax
+   0x08048ee7 <+76>:    cmp    $0x5,%eax
+   0x08048eea <+79>:    jbe    0x8048ec4 <phase_6+41>
+   0x08048eec <+81>:    call   0x80491c1 <explode_bomb>
+   0x08048ef1 <+86>:    jmp    0x8048ec4 <phase_6+41>
+   0x08048ef3 <+88>:    call   0x80491c1 <explode_bomb>
+   0x08048ef8 <+93>:    jmp    0x8048ed8 <phase_6+61>
+```
+
+`%esi`作为访问六个数字的索引值，值在1~6中变化，由上述代码可知，输入的六个数字全都在1~6之间，等到六个数字被全部访问过一遍后，跳出循环。
+
+此外，根据<+49>到<+59>可知，数列中没有两个连续相同的数字。
+
+```cpp
+//esi- i ebx-i eax-cnt edx-p ecx-a[i]
+for(int i = 0; i <= 5; i++) {
+    cnt = 1
+    ecx = a[i]
+    p = 0x804c13c
+    if(a[0] > 1) { //将p移动到第i个节点
+        while(a[0]!=cnt) {
+            p = *(p + 1);//p = (*p).next;
+            cnt++;
+        }
+    }
+//1->2->3->4->5->6
+    a[5 + i] = p    
+}
+b = a+6; //ebx-b()
+ptr = b[0];
+//eax-i   ecx-ptr
+for(int i = 1; i <= 5; i++) {
+    ptr->next = b[i];
+    ptr = b[i];
+}
+b[5]->next = NULL;
+for(int i = 5; i > 0;i--){
+    b[0] = b[0]->next;
+       pp = b[0]->next;
+    val = *pp
+    if(val < *b[0]) bomb();
+
+}
+```
+
+根据逆向代码可知，要输入的数列应该是链表上节点降序排序后的编号所组成的数列。
+
+```
+0x804c13c <node1>:    0x00000065   0x00000001   0x0804c148  
+                      0x00000109   0x00000002   0x0804c154   
+                      0x000003ab   0x00000003   0x0804c160   
+                      0x00000307   0x00000004   0x0804c16c
+                      0x00000121   0x00000005   0x0804c178  
+                      0x00000233   0x00000006   0x00000000 
+```
+
+则答案为：`3 4 6 5 2 1`
+
+`secret_phase`：
+
+在`bomb.c`的最后有这样一段注释：
+
+```c
+    /* Wow, they got it!  But isn't something... missing?  Perhaps
+     * something they overlooked?  Mua ha ha ha ha! */
+```
+
+这暗示我们有隐藏关卡。我们查看反汇编文件`bomb.s`，发现其中有两个函数`fun7`与`secret_phase`在前面的lab中从未出现过。
+
+现在问题在于：如何找到`secret_phase`的入口？
+
+搜索函数`secret_phase`的地址，可以发现在`phase_defused`中出现了转向`secret_phase`的跳转语句。
