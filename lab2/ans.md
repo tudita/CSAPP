@@ -2,9 +2,10 @@
 I am for medical liability at the federal level.
 0 1 1 2 3 5
 0 k 101
-14 7
+14 7 DrEvil
 5 115
 3 4 6 5 2 1
+36
 ```
 
 反汇编函数`phase_1`
@@ -324,3 +325,117 @@ for(int i = 5; i > 0;i--){
 现在问题在于：如何找到`secret_phase`的入口？
 
 搜索函数`secret_phase`的地址，可以发现在`phase_defused`中出现了转向`secret_phase`的跳转语句。
+
+```asm6502
+   0x08049365 <+69>:    call   0x8048810 <__isoc99_sscanf@plt>
+   0x0804936a <+74>:    add    $0x20,%esp
+   0x0804936d <+77>:    cmp    $0x3,%eax
+   0x08049370 <+80>:    je     0x8049384 <phase_defused+100>
+   0x08049372 <+82>:    sub    $0xc,%esp
+   0x08049375 <+85>:    push   $0x804a258
+   0x0804937a <+90>:    call   0x80487c0 <puts@plt>
+   0x0804937f <+95>:    add    $0x10,%esp
+   0x08049382 <+98>:    jmp    0x8049338 <phase_defused+24>
+   0x08049384 <+100>:   sub    $0x8,%esp
+   0x08049387 <+103>:   push   $0x804a332
+   0x0804938c <+108>:   lea    0x18(%esp),%eax
+   0x08049390 <+112>:   push   %eax
+   0x08049391 <+113>:   call   0x80490cc <strings_not_equal>
+   0x08049396 <+118>:   add    $0x10,%esp
+   0x08049399 <+121>:   test   %eax,%eax
+   0x0804939b <+123>:   jne    0x8049372 <phase_defused+82>
+   0x0804939d <+125>:   sub    $0xc,%esp
+   0x080493a0 <+128>:   push   $0x804a1f8
+   0x080493a5 <+133>:   call   0x80487c0 <puts@plt>
+   0x080493aa <+138>:   movl   $0x804a220,(%esp)
+   0x080493b1 <+145>:   call   0x80487c0 <puts@plt>
+   0x080493b6 <+150>:   call   0x8048fd5 <secret_phase>
+```
+
+我们可以发现，进入`secret_phase`需要在某个`phase`中输入三个数据，并且第三个数据与`0x804a332`中的数据相同。
+
+```
+(gdb) x/s 0x804a332
+0x804a332:      "DrEvil"
+```
+
+我们试着在`phase_4`中加入`DrEvil`，结果如下：
+
+```
+Welcome to my fiendish little bomb. You have 6 phases with
+which to blow yourself up. Have a nice day!
+I am for medical liability at the federal level.
+Phase 1 defused. How about the next one?
+0 1 1 2 3 5
+That's number 2.  Keep going!
+0 k 101
+Halfway there!
+14 7 DrEvil
+So you got that one.  Try this one.
+5 115
+Good work!  On to the next...
+3 4 6 5 2 1
+Curses, you've found the secret phase!
+But finding it and solving it are quite different...
+```
+
+显然我们找到了我们所需要的入口。
+
+```asm6502
+   0x08048fd5 <+0>:     push   %ebx
+   0x08048fd6 <+1>:     sub    $0x8,%esp
+   0x08048fd9 <+4>:     call   0x8049221 <read_line>
+   0x08048fde <+9>:     sub    $0x4,%esp
+   0x08048fe1 <+12>:    push   $0xa
+   0x08048fe3 <+14>:    push   $0x0
+   0x08048fe5 <+16>:    push   %eax
+   0x08048fe6 <+17>:    call   0x8048880 <strtol@plt>
+   0x08048feb <+22>:    mov    %eax,%ebx
+   0x08048fed <+24>:    lea    -0x1(%eax),%eax
+   0x08048ff0 <+27>:    add    $0x10,%esp
+   0x08048ff3 <+30>:    cmp    $0x3e8,%eax
+   0x08048ff8 <+35>:    ja     0x8049026 <secret_phase+81>
+   0x08048ffa <+37>:    sub    $0x8,%esp
+   0x08048ffd <+40>:    push   %ebx
+   0x08048ffe <+41>:    push   $0x804c088
+   0x08049003 <+46>:    call   0x8048f84 <fun7>
+   0x08049008 <+51>:    add    $0x10,%esp
+   0x0804900b <+54>:    test   %eax,%eax
+   0x0804900d <+56>:    jne    0x804902d <secret_phase+88>
+   0x0804900f <+58>:    sub    $0xc,%esp
+   0x08049012 <+61>:    push   $0x804a118
+   0x08049017 <+66>:    call   0x80487c0 <puts@plt>
+   0x0804901c <+71>:    call   0x8049320 <phase_defused>
+   0x08049021 <+76>:    add    $0x18,%esp
+   0x08049024 <+79>:    pop    %ebx
+   0x08049025 <+80>:    ret
+   0x08049026 <+81>:    call   0x80491c1 <explode_bomb>
+   0x0804902b <+86>:    jmp    0x8048ffa <secret_phase+37>
+   0x0804902d <+88>:    call   0x80491c1 <explode_bomb>
+   0x08049032 <+93>:    jmp    0x804900f <secret_phase+58>et_phase+81>
+```
+
+开头先读入一行字符串，之后用函数`strtol`将其转化为底数为`10`的`long int`，设为x。
+
+由<+35>行可知，该数字不能大于`0x3e9`，否则直接bomb！
+
+随后调用了`fun7`，传入了`x`和一个数组`0x804c088`。可知该函数应当返回`0`，否则也会bomb！
+
+而观察`fun7`,我们可以知道这个函数的功能是在一个二叉树中查找一个数，并返回这个数的坐标。这个二叉树以数组方式顺序存储，设某个节点的下标为`i`，满足如下关系：
+
+- 它的左节点下标为`i*2`
+
+- 它的右节点下标为`i*2 + 1`
+
+而根据我们前面的分析，只有当这个点的下标为0时，炸弹不会爆炸，也就是说，那个数字就是我们要寻找的数字。
+
+而查看以`0x804c088`为首地址的内存区域，我们找到了那个数字：`0x24`
+
+输入它的十进制表示`36`，我们便可以看到Dr.Evil的祝贺：
+
+```
+Wow! You've defused the secret stage!
+Congratulations! You've defused the bomb!
+```
+
+至此，`bomb lab`的7个phase，我们已经全部破解完成！
