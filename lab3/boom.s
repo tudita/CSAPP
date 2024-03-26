@@ -1,4 +1,3 @@
-sub 0x4,%esp
 mov $0x26e03bce,%eax
-mov $0x8048e81,%esp
+push $0x8048e81
 ret 
